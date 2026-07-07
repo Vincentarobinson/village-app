@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Village",
+    "slug": "village",
+    "version": "0.1.0",
+    "scheme": "village",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FBF6EE",
+    "splash": {
+      "backgroundColor": "#1E4D42",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.robinsonpremier.village",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Village uses your camera so you can add photos to your profile, meetups, and listings.",
+        "NSPhotoLibraryUsageDescription": "Village lets you choose photos to share on your profile, meetups, and listings.",
+        "NSLocationWhenInUseUsageDescription": "Village uses your location to show parents and meetups in your neighborhood. Your exact location is never shared."
+      }
+    },
+    "android": {
+      "package": "com.robinsonpremier.village",
+      "permissions": ["CAMERA", "ACCESS_COARSE_LOCATION"]
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
