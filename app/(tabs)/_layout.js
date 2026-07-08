@@ -1,6 +1,9 @@
+import * as React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "../../lib/theme";
+import { useAppState } from "../../lib/app-state";
+import { registerForPush } from "../../lib/notifications";
 
 const tabIcon =
   (name) =>
@@ -14,6 +17,12 @@ const tabIcon =
     );
 
 export default function TabsLayout() {
+  const { session } = useAppState();
+
+  React.useEffect(() => {
+    if (session) registerForPush();
+  }, [session]);
+
   return (
     <Tabs
       screenOptions={{

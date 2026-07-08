@@ -34,8 +34,8 @@ Cross-cutting: screenshots/recordings blocked app-wide (`expo-screen-capture`), 
 2. ~~**Discover on PostGIS**~~ ✅ — `nearby_parents` RPC (`ST_DWithin`), connect requests + accept flow (`accept_connection` creates the DM thread); falls back to demo data when logged out
 3. ~~**Realtime chat**~~ ✅ — threads/messages tables with member-only RLS, live inserts via `postgres_changes`
 4. ~~**Meetups CRUD + auto group chats**~~ ✅ — `create_meetup` / `rsvp_meetup` RPCs; RSVP joins the event group chat automatically, capacity enforced
-5. **Photo moderation pipeline** — storage webhook → moderation API before publish (needs Hive/Rekognition account)
-6. **Push notifications** (Expo Notifications)
+5. ~~**Push notifications**~~ ✅ — Postgres triggers → Expo push API (new messages, connection requests/accepts, RSVPs). App-side: run `npx eas init` once to get a project id, then tokens register automatically on sign-in (physical devices only)
+6. **Photo moderation pipeline** — storage webhook → moderation API before publish (needs Hive/Rekognition account)
 7. **Stripe Identity** — replace the stub in `app/(onboarding)/verify-identity.js` (see `docs/INTEGRATIONS.md`)
 8. **Checkr** sitter onboarding (sitter pays; Hosted Apply + webhooks)
 9. EAS Build → TestFlight
