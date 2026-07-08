@@ -10,14 +10,20 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Input, Field, H1, Sub, Chip } from "../../components/ui";
 import { useAppState } from "../../lib/app-state";
-import { NEIGHBORHOODS, findNeighborhood } from "../../lib/neighborhoods";
-import { uploadAvatar, saveProfile, getMyProfile } from "../../lib/api";
+import {
+  NEIGHBORHOODS,
+  findNeighborhood,
+  fuzzCoords,
+} from "../../lib/neighborhoods";
+import { saveProfile, saveProfilePhotos, getMyProfile } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import { C } from "../../lib/theme";
 
+const MAX_PHOTOS = 5;
 const PARENT_TYPES = [
   { label: "Mom", value: "mom" },
   { label: "Dad", value: "dad" },
@@ -39,10 +45,13 @@ export default function ProfileSetup() {
   const router = useRouter();
   const { setUser, setMyProfile, inLaunchArea } = useAppState();
 
-  const [avatarUri, setAvatarUri] = React.useState(null);
+  const [photos, setPhotos] = React.useState([]); // local uris, first = main
   const [name, setName] = React.useState("");
   const [parentType, setParentType] = React.useState("mom");
-  const [hood, setHood] = React.useState(null); // neighborhood name
+  const [hood, setHood] = React.useState(null); // selected list name or "other"
+  const [customHood, setCustomHood] = React.useState("");
+  const [customCoords, setCustomCoords] = React.useState(null); // fuzzed
+  const [locBusy, setLocBusy] = React.useState(false);
   const [ages, setAges] = React.useState(new Set());
   const [tags, setTags] = React.useState(new Set());
   const [bio, setBio] = React.useState("");
@@ -56,55 +65,92 @@ export default function ProfileSetup() {
       return n;
     });
 
-  async function pickPhoto() {
-    /* Photo pipeline (spec §3.2): compressed, EXIF stripped on pick;
-     * server-side moderation gates publish. Neutral framing. */
+  async function addPhoto() {
+    if (photos.length >= MAX_PHOTOS) return;
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [4, 5],
       quality: 0.8,
-      exif: false,
+      exif: false, // location metadata never enters the app
     });
-    if (!res.canceled) setAvatarUri(res.assets[0].uri);
+    if (!res.canceled) setPhotos((p) => [...p, res.assets[0].uri]);
+  }
+
+  function removePhoto(i) {
+    setPhotos((p) => p.filter((_, idx) => idx !== i));
+  }
+
+  async function useMyLocation() {
+    setError("");
+    setLocBusy(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("Location permission declined — you can pick a neighborhood from the list instead.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      // Privacy: round to ~1km grid before it ever leaves this function.
+      setCustomCoords(fuzzCoords(pos.coords.latitude, pos.coords.longitude));
+    } catch {
+      setError("Couldn't get your location — pick from the list instead.");
+    } finally {
+      setLocBusy(false);
+    }
   }
 
   async function finish() {
     setError("");
-    if (!avatarUri) return setError("A profile photo is required on Village.");
+    if (photos.length === 0)
+      return setError("At least one profile photo is required on Village.");
     if (!name.trim()) return setError("Add your first name and last initial.");
-    if (!hood) return setError("Pick your neighborhood.");
+
+    let neighborhood;
+    if (hood === "other") {
+      if (!customHood.trim())
+        return setError("Type your neighborhood or area name.");
+      if (!customCoords)
+        return setError('Tap "Use my approximate location" so parents nearby can find you.');
+      neighborhood = { name: customHood.trim(), ...customCoords };
+    } else if (hood) {
+      neighborhood = findNeighborhood(hood);
+    } else {
+      return setError("Pick your neighborhood.");
+    }
+
     if (ages.size === 0) return setError("Select your kids' age range(s).");
 
-    const localProfile = {
+    setUser({
       name: name.trim(),
       parentType,
-      hood,
+      hood: neighborhood.name,
       kidAges: [...ages],
       tags: [...tags],
       bio: bio.trim(),
-      avatarUri,
-    };
-    setUser(localProfile);
+      avatarUri: photos[0],
+    });
 
     setSaving(true);
     try {
       const { data: auth } = await supabase.auth.getUser();
       if (auth?.user) {
-        let avatarUrl = null;
+        let uploaded = [];
         try {
-          avatarUrl = await uploadAvatar(auth.user.id, avatarUri);
+          uploaded = await saveProfilePhotos(auth.user.id, photos);
         } catch {
-          // avatar upload is non-blocking in the scaffold
+          // photos are retryable from Me tab; don't block onboarding
         }
         await saveProfile({
           displayName: name.trim(),
           parentType,
           bio: bio.trim(),
-          neighborhood: findNeighborhood(hood),
+          neighborhood,
           tags: [...tags],
           ageRanges: [...ages],
-          avatarUrl,
+          avatarUrl: uploaded[0] || null,
         });
         const p = await getMyProfile();
         setMyProfile(p);
@@ -125,20 +171,33 @@ export default function ProfileSetup() {
           This is what nearby parents see. Kids are shown as age ranges only.
         </Sub>
 
-        {/* profile photo — required */}
-        <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarEmpty]}>
-              <Ionicons name="camera-outline" size={26} color={C.pine} />
-              <Text style={styles.avatarText}>Add photo</Text>
-            </View>
-          )}
-        </Pressable>
-        <Sub style={{ textAlign: "center", fontSize: 12, marginBottom: 24 }}>
-          Required — every upload is moderated and location data is removed.
-        </Sub>
+        {/* photos — first is your main photo, up to 5, swipeable on your profile */}
+        <Field label={`Photos (${photos.length}/${MAX_PHOTOS} — first is your main photo)`}>
+          <View style={styles.photoRow}>
+            {photos.map((uri, i) => (
+              <View key={uri + i} style={styles.photoCell}>
+                <Image source={{ uri }} style={styles.photo} />
+                {i === 0 && (
+                  <View style={styles.mainBadge}>
+                    <Text style={styles.mainBadgeText}>Main</Text>
+                  </View>
+                )}
+                <Pressable style={styles.removeBtn} onPress={() => removePhoto(i)}>
+                  <Ionicons name="close" size={12} color="#fff" />
+                </Pressable>
+              </View>
+            ))}
+            {photos.length < MAX_PHOTOS && (
+              <Pressable onPress={addPhoto} style={[styles.photoCell, styles.addCell]}>
+                <Ionicons name="add" size={22} color={C.pine} />
+              </Pressable>
+            )}
+          </View>
+          <Sub style={{ fontSize: 12, marginTop: 6 }}>
+            At least one required. Every upload is moderated and location data
+            is removed automatically.
+          </Sub>
+        </Field>
 
         <Field label="Name (first name + last initial)">
           <Input value={name} onChangeText={setName} placeholder="Vincent R." />
@@ -158,7 +217,7 @@ export default function ProfileSetup() {
         </Field>
 
         <Field label="Neighborhood (never your exact address)">
-          <View style={[styles.chipRow, { rowGap: 8, flexWrap: "wrap" }]}>
+          <View style={[styles.chipRow, { flexWrap: "wrap" }]}>
             {NEIGHBORHOODS.map((n) => (
               <View key={n.name} style={{ marginBottom: 8 }}>
                 <Chip
@@ -168,7 +227,46 @@ export default function ProfileSetup() {
                 />
               </View>
             ))}
+            <View style={{ marginBottom: 8 }}>
+              <Chip
+                label="Other…"
+                active={hood === "other"}
+                onPress={() => setHood("other")}
+              />
+            </View>
           </View>
+
+          {hood === "other" && (
+            <View style={styles.otherBox}>
+              <Input
+                value={customHood}
+                onChangeText={setCustomHood}
+                placeholder="Your neighborhood or area (e.g. Smyrna)"
+              />
+              <Pressable
+                onPress={useMyLocation}
+                style={[styles.locBtn, customCoords && styles.locBtnDone]}
+              >
+                <Ionicons
+                  name={customCoords ? "checkmark-circle" : "navigate-outline"}
+                  size={16}
+                  color={customCoords ? "#fff" : C.pine}
+                />
+                <Text style={[styles.locBtnText, customCoords && { color: "#fff" }]}>
+                  {locBusy
+                    ? "Getting approximate area…"
+                    : customCoords
+                    ? "Approximate area saved"
+                    : "Use my approximate location"}
+                </Text>
+              </Pressable>
+              <Sub style={{ fontSize: 11.5, marginTop: 8 }}>
+                We round your location to about a 1-km area so neighbors can
+                find you by distance — your exact location is never stored or
+                shown.
+              </Sub>
+            </View>
+          )}
         </Field>
 
         <Field label="Kids' age ranges">
@@ -185,7 +283,7 @@ export default function ProfileSetup() {
         </Field>
 
         <Field label="Interests">
-          <View style={[styles.chipRow, { flexWrap: "wrap", rowGap: 8 }]}>
+          <View style={[styles.chipRow, { flexWrap: "wrap" }]}>
             {INTERESTS.map((t) => (
               <View key={t} style={{ marginBottom: 8 }}>
                 <Chip
@@ -220,17 +318,58 @@ export default function ProfileSetup() {
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 24, paddingTop: 24 },
-  avatarWrap: { alignSelf: "center", marginBottom: 8 },
-  avatar: { width: 108, height: 108, borderRadius: 36 },
-  avatarEmpty: {
+  photoRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  photoCell: {
+    width: 76,
+    height: 95,
+    borderRadius: 14,
+    overflow: "hidden",
+    position: "relative",
+  },
+  photo: { width: "100%", height: "100%" },
+  addCell: {
     backgroundColor: C.pineTint,
-    alignItems: "center",
-    justifyContent: "center",
     borderWidth: 1.5,
     borderColor: C.line,
     borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarText: { fontSize: 12, fontWeight: "700", color: C.pine, marginTop: 4 },
+  mainBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    backgroundColor: "rgba(30,77,66,0.9)",
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  mainBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
+  removeBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(34,51,59,0.75)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   chipRow: { flexDirection: "row", flexWrap: "wrap" },
+  otherBox: { marginTop: 10 },
+  locBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    marginTop: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: C.pine,
+    paddingVertical: 11,
+  },
+  locBtnDone: { backgroundColor: C.pine, borderColor: C.pine },
+  locBtnText: { fontSize: 13.5, fontWeight: "700", color: C.pine },
   error: { color: C.coral, fontWeight: "600", marginBottom: 14 },
 });
