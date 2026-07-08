@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#fff",
+    backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: C.ink,
   },
-  error: { color: C.coral, fontWeight: "600", marginBottom: 10 },
+  error: { color: C.danger, fontWeight: "600", marginBottom: 10 },
   doneWrap: { alignItems: "center", paddingTop: 60 },
   doneIcon: {
     width: 80,

@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#fff",
+    backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 22, fontWeight: "800", color: C.ink },
   statRow: { flexDirection: "row", gap: 10, marginVertical: 18 },
   stat: {
-    backgroundColor: "#fff",
+    backgroundColor: C.surface,
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,

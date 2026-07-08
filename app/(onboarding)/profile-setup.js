@@ -371,5 +371,5 @@ const styles = StyleSheet.create({
   },
   locBtnDone: { backgroundColor: C.pine, borderColor: C.pine },
   locBtnText: { fontSize: 13.5, fontWeight: "700", color: C.pine },
-  error: { color: C.coral, fontWeight: "600", marginBottom: 14 },
+  error: { color: C.danger, fontWeight: "600", marginBottom: 14 },
 });

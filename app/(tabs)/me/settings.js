@@ -67,8 +67,8 @@ export default function Settings() {
         <SectionLabel>Session</SectionLabel>
         <Card style={{ padding: 6 }}>
           <Pressable onPress={signOut} style={styles.row}>
-            <Ionicons name="log-out-outline" size={18} color={C.coral} />
-            <Text style={[styles.rowText, { color: C.coral }]}>Sign out</Text>
+            <Ionicons name="log-out-outline" size={18} color={C.danger} />
+            <Text style={[styles.rowText, { color: C.danger }]}>Sign out</Text>
           </Pressable>
           <Pressable
             onPress={() =>
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#fff",
+    backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 12,
   },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: "#F1ECE1" },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.line },
   rowText: { flex: 1, fontSize: 14.5, fontWeight: "600", color: C.ink },
   version: { textAlign: "center", marginTop: 24, fontSize: 12 },
 });

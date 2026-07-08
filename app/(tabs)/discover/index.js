@@ -125,7 +125,7 @@ export default function Discover() {
     <SafeAreaView style={{ flex: 1, backgroundColor: C.cream }} edges={["top"]}>
       <View style={styles.header}>
         <View style={styles.locRow}>
-          <Ionicons name="location" size={13} color={C.coral} />
+          <Ionicons name="location" size={13} color={C.pine} />
           <Sub style={{ fontSize: 12.5 }}>
             {" "}{hood} · within {radius} mi{live ? "" : " · demo data"}
           </Sub>

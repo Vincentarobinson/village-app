@@ -27,13 +27,21 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: C.coral,
+        tabBarActiveTintColor: C.pine,
         tabBarInactiveTintColor: C.inactive,
         tabBarLabelStyle: { fontSize: 10.5, fontWeight: "700" },
         tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopColor: "#EFE9DD",
-          borderTopWidth: 1.5,
+          backgroundColor: C.surface,
+          borderTopWidth: 0,
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
+          shadowColor: "#1A1D1C",
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -2 },
+          elevation: 12,
+          paddingTop: 6,
+          height: 84,
         },
         sceneStyle: { backgroundColor: C.cream },
       }}

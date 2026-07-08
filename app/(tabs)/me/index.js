@@ -86,7 +86,7 @@ export default function Me() {
           },
           {
             icon: "heart",
-            color: C.coral,
+            color: C.danger,
             t: "Community-first",
             d: "This is not a dating app. Report anyone who treats it like one.",
           },
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#fff",
+    backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
   },

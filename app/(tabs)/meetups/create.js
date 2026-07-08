@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#fff",
+    backgroundColor: C.surface,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -186,5 +186,5 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   toggleText: { fontSize: 14.5, fontWeight: "600", color: C.ink },
-  error: { color: C.coral, fontWeight: "600", marginBottom: 14 },
+  error: { color: C.danger, fontWeight: "600", marginBottom: 14 },
 });

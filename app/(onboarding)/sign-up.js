@@ -75,5 +75,5 @@ export default function SignUp() {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
-  error: { color: C.coral, fontWeight: "600", marginBottom: 14 },
+  error: { color: C.danger, fontWeight: "600", marginBottom: 14 },
 });

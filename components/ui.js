@@ -65,8 +65,8 @@ export function Chip({ label, active, onPress }) {
       style={[
         styles.chip,
         {
-          backgroundColor: active ? C.pine : "#fff",
-          borderColor: active ? C.pine : C.line,
+          backgroundColor: active ? C.ink : "#fff",
+          borderColor: active ? C.ink : C.line,
         },
       ]}
     >
@@ -137,14 +137,16 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: C.card,
     borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: C.line,
     padding: 16,
     ...shadow.card,
   },
   h1: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 32,
+    fontWeight: "800",
     color: C.ink,
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
   },
   sectionLabel: {
     fontSize: 11,
@@ -183,11 +185,11 @@ const styles = StyleSheet.create({
   },
   tagText: { fontSize: 11.5, fontWeight: "700", color: C.pine },
   input: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: C.line,
     borderRadius: radii.input,
-    backgroundColor: "#fff",
-    paddingVertical: 12,
+    backgroundColor: C.surface,
+    paddingVertical: 13,
     paddingHorizontal: 16,
     fontSize: 15,
     color: C.ink,
