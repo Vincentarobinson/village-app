@@ -26,12 +26,20 @@ export default function Me() {
       <ScrollView contentContainerStyle={styles.wrap}>
         <View style={styles.topRow}>
           <H1>Me</H1>
-          <Pressable
-            onPress={() => router.push("/me/settings")}
-            style={styles.gearBtn}
-          >
-            <Ionicons name="settings-outline" size={18} color={C.ink} />
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              onPress={() => router.push("/me/edit")}
+              style={styles.gearBtn}
+            >
+              <Ionicons name="create-outline" size={18} color={C.ink} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/me/settings")}
+              style={styles.gearBtn}
+            >
+              <Ionicons name="settings-outline" size={18} color={C.ink} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.profileRow}>

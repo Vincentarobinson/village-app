@@ -12,7 +12,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
-import { Avatar, Card, Chip, H1, Sub, Tag } from "../../../components/ui";
+import { Avatar, Card, Chip, Sub } from "../../../components/ui";
 import { PARENTS } from "../../../lib/mock";
 import { useAppState } from "../../../lib/app-state";
 import { fetchNearbyParents, requestConnection, getMyProfile } from "../../../lib/api";
@@ -35,6 +35,7 @@ const MOCK_ROWS = PARENTS.map((p) => ({
   tags: p.tags,
   dist_mi: p.dist,
   age_ranges: [p.kids.replace(/Kids? /, "")],
+  photos: [],
   _initials: p.initials,
   _hue: p.hue,
   _mockId: p.id,
@@ -47,7 +48,7 @@ export default function Discover() {
   const [who, setWho] = React.useState("all");
   const [radius, setRadius] = React.useState(5);
   const [showFilters, setShowFilters] = React.useState(false);
-  const [rows, setRows] = React.useState(null); // null = loading
+  const [rows, setRows] = React.useState(null);
   const [refreshing, setRefreshing] = React.useState(false);
   const [live, setLive] = React.useState(false);
   const [requested, setRequested] = React.useState(new Set());
@@ -117,6 +118,10 @@ export default function Discover() {
       (live || r.dist_mi <= radius)
   );
 
+  const firstName = (
+    myProfile?.display_name ||
+    "there"
+  ).split(" ")[0];
   const hood = live
     ? myProfile?.neighborhood || "Your neighborhood"
     : "Grant Park, Atlanta";
@@ -124,14 +129,17 @@ export default function Discover() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.cream }} edges={["top"]}>
       <View style={styles.header}>
-        <View style={styles.locRow}>
-          <Ionicons name="location" size={13} color={C.pine} />
-          <Sub style={{ fontSize: 12.5 }}>
-            {" "}{hood} · within {radius} mi{live ? "" : " · demo data"}
-          </Sub>
-        </View>
-        <View style={styles.titleRow}>
-          <H1>Parents near you</H1>
+        {/* greeting row */}
+        <View style={styles.greetRow}>
+          <View>
+            <Text style={styles.greeting}>Hi, {firstName}</Text>
+            <View style={styles.locRow}>
+              <Ionicons name="location" size={12} color={C.pine} />
+              <Sub style={{ fontSize: 12.5 }}>
+                {" "}{hood} · {radius} mi{live ? "" : " · demo"}
+              </Sub>
+            </View>
+          </View>
           <Pressable
             onPress={() => router.push("/discover/requests")}
             style={styles.requestsBtn}
@@ -150,7 +158,7 @@ export default function Discover() {
             />
           ))}
           <Chip
-            label="Filters"
+            label={`Within ${radius} mi`}
             active={showFilters}
             onPress={() => setShowFilters(!showFilters)}
           />
@@ -165,9 +173,9 @@ export default function Discover() {
               step={1}
               value={radius}
               onSlidingComplete={setRadius}
-              minimumTrackTintColor={C.coral}
+              minimumTrackTintColor={C.pine}
               maximumTrackTintColor={C.line}
-              thumbTintColor={C.coral}
+              thumbTintColor={C.pine}
             />
           </Card>
         )}
@@ -179,6 +187,9 @@ export default function Discover() {
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListHeaderComponent={
+          <Text style={styles.sectionTitle}>Parents near you</Text>
         }
         ListEmptyComponent={
           rows === null ? (
@@ -199,6 +210,7 @@ export default function Discover() {
             r.age_ranges && r.age_ranges.length
               ? `Kids ${r.age_ranges.join(" & ")}`
               : "Parent";
+          const photo = (r.photos && r.photos[0]) || r.avatar_url;
           return (
             <Pressable
               onPress={() =>
@@ -207,11 +219,12 @@ export default function Discover() {
                 )
               }
             >
-              <Card style={{ marginBottom: 12 }}>
-                <View style={styles.cardTop}>
-                  {r.avatar_url ? (
-                    <Image source={{ uri: r.avatar_url }} style={styles.avatarImg} />
-                  ) : (
+              <Card style={styles.parentCard}>
+                {/* photo-forward left column */}
+                {photo ? (
+                  <Image source={{ uri: photo }} style={styles.parentPhoto} />
+                ) : (
+                  <View style={[styles.parentPhoto, styles.parentPhotoEmpty]}>
                     <Avatar
                       initials={
                         r._initials ||
@@ -223,42 +236,49 @@ export default function Discover() {
                           .toUpperCase()
                       }
                       hue={r._hue || C.pine}
-                      size={52}
+                      size={54}
                     />
-                  )}
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <View style={styles.nameRow}>
-                      <Text style={styles.name}>{r.display_name}</Text>
-                      <Sub style={{ fontSize: 12 }}>{r.dist_mi} mi</Sub>
+                  </View>
+                )}
+
+                <View style={styles.parentBody}>
+                  <View style={styles.nameRow}>
+                    <View style={styles.nameWrap}>
+                      <Text style={styles.name} numberOfLines={1}>
+                        {r.display_name}
+                      </Text>
+                      <Ionicons name="shield-checkmark" size={13} color={C.pine} />
                     </View>
-                    <Sub style={{ marginTop: 2 }}>
-                      Single {r.parent_type} · {kidsLabel} · {r.neighborhood}
-                    </Sub>
+                    <Text style={styles.dist}>{r.dist_mi} mi</Text>
                   </View>
-                </View>
-                <View style={styles.cardBottom}>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", flex: 1 }}>
-                    {(r.tags || []).map((t) => (
-                      <Tag key={t} label={t} />
-                    ))}
-                  </View>
-                  <Pressable
-                    onPress={() => connect(r)}
-                    style={[
-                      styles.connectBtn,
-                      { backgroundColor: isRequested ? C.pineTint : C.coral },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        color: isRequested ? C.pine : "#fff",
-                        fontWeight: "800",
-                        fontSize: 13,
-                      }}
-                    >
-                      {isRequested ? "Requested ✓" : "Connect"}
+                  <Sub style={{ fontSize: 12.5, marginTop: 2 }} numberOfLines={1}>
+                    Single {r.parent_type} · {kidsLabel}
+                  </Sub>
+                  <Sub style={{ fontSize: 12.5 }} numberOfLines={1}>
+                    {r.neighborhood}
+                  </Sub>
+
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.tagLine} numberOfLines={1}>
+                      {(r.tags || []).slice(0, 2).join(" · ")}
                     </Text>
-                  </Pressable>
+                    <Pressable
+                      onPress={() => connect(r)}
+                      style={[
+                        styles.connectBtn,
+                        isRequested && styles.connectBtnDone,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.connectText,
+                          isRequested && { color: C.pine },
+                        ]}
+                      >
+                        {isRequested ? "Requested" : "Connect"}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
               </Card>
             </Pressable>
@@ -270,41 +290,88 @@ export default function Discover() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 18, paddingTop: 8 },
-  locRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  titleRow: {
+  header: { paddingHorizontal: 18, paddingTop: 10 },
+  greetRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
   },
+  greeting: {
+    fontSize: 30,
+    fontWeight: "800",
+    color: C.ink,
+    letterSpacing: -0.8,
+  },
+  locRow: { flexDirection: "row", alignItems: "center", marginTop: 3 },
   requestsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: C.pineTint,
     alignItems: "center",
     justifyContent: "center",
   },
-  chips: { flexDirection: "row", marginTop: 14 },
+  chips: { flexDirection: "row", marginTop: 16 },
   filterLabel: { fontSize: 13, fontWeight: "800", color: C.ink, marginBottom: 6 },
-  list: { padding: 18, paddingTop: 16 },
-  cardTop: { flexDirection: "row", alignItems: "center" },
-  avatarImg: { width: 52, height: 52, borderRadius: 18 },
+  list: { padding: 18, paddingTop: 10 },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.sub,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  parentCard: {
+    flexDirection: "row",
+    padding: 10,
+    marginBottom: 12,
+    gap: 12,
+  },
+  parentPhoto: {
+    width: 92,
+    height: 112,
+    borderRadius: 12,
+  },
+  parentPhotoEmpty: {
+    backgroundColor: C.pineTint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  parentBody: { flex: 1, paddingVertical: 4, paddingRight: 4 },
   nameRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "baseline",
+    alignItems: "center",
   },
-  name: { fontWeight: "800", fontSize: 16, color: C.ink },
-  cardBottom: {
+  nameWrap: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 12,
+    gap: 5,
+    flex: 1,
+    marginRight: 8,
+  },
+  name: { fontWeight: "800", fontSize: 16.5, color: C.ink, flexShrink: 1 },
+  dist: { fontSize: 12, fontWeight: "700", color: C.sub },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: "auto",
     gap: 8,
   },
+  tagLine: {
+    flex: 1,
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: C.pine,
+  },
   connectBtn: {
+    backgroundColor: C.ink,
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
+  connectBtnDone: { backgroundColor: C.pineTint },
+  connectText: { color: "#fff", fontWeight: "800", fontSize: 12.5 },
 });

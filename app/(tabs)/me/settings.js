@@ -14,8 +14,8 @@ export default function Settings() {
     {
       section: "Account",
       items: [
-        ["person-outline", "Edit profile", () => Alert.alert("Coming with the profiles milestone")],
-        ["images-outline", "My photos", () => Alert.alert("Photo manager", "All uploads are moderated and location-stripped automatically.")],
+        ["person-outline", "Edit profile", () => router.push("/me/edit")],
+        ["images-outline", "My photos", () => router.push("/me/edit")],
         ["notifications-outline", "Notifications", () => Alert.alert("Coming with the push milestone")],
       ],
     },
