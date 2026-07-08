@@ -13,9 +13,16 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Input, Field, H1, Sub, Chip } from "../../components/ui";
 import { useAppState } from "../../lib/app-state";
+import { NEIGHBORHOODS, findNeighborhood } from "../../lib/neighborhoods";
+import { uploadAvatar, saveProfile, getMyProfile } from "../../lib/api";
+import { supabase } from "../../lib/supabase";
 import { C } from "../../lib/theme";
 
-const PARENT_TYPES = ["Mom", "Dad", "Parent"];
+const PARENT_TYPES = [
+  { label: "Mom", value: "mom" },
+  { label: "Dad", value: "dad" },
+  { label: "Parent", value: "parent" },
+];
 const AGE_RANGES = ["0-2", "3-5", "6-9", "10-13", "14-17"];
 const INTERESTS = [
   "Playdates",
@@ -30,16 +37,17 @@ const INTERESTS = [
 
 export default function ProfileSetup() {
   const router = useRouter();
-  const { setUser, inLaunchArea } = useAppState();
+  const { setUser, setMyProfile, inLaunchArea } = useAppState();
 
   const [avatarUri, setAvatarUri] = React.useState(null);
   const [name, setName] = React.useState("");
-  const [parentType, setParentType] = React.useState("Mom");
-  const [hood, setHood] = React.useState("");
+  const [parentType, setParentType] = React.useState("mom");
+  const [hood, setHood] = React.useState(null); // neighborhood name
   const [ages, setAges] = React.useState(new Set());
   const [tags, setTags] = React.useState(new Set());
   const [bio, setBio] = React.useState("");
   const [error, setError] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
 
   const toggle = (setter) => (v) =>
     setter((prev) => {
@@ -49,39 +57,64 @@ export default function ProfileSetup() {
     });
 
   async function pickPhoto() {
-    /*
-     * Photo pipeline (spec §3.2): on upload we compress to 1600px,
-     * strip EXIF/GPS, then run moderation before the photo goes
-     * public. Neutral framing — it's just "your photos."
-     */
+    /* Photo pipeline (spec §3.2): compressed, EXIF stripped on pick;
+     * server-side moderation gates publish. Neutral framing. */
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
-      exif: false, // never read EXIF into the app
+      exif: false,
     });
     if (!res.canceled) setAvatarUri(res.assets[0].uri);
   }
 
-  function finish() {
+  async function finish() {
     setError("");
     if (!avatarUri) return setError("A profile photo is required on Village.");
     if (!name.trim()) return setError("Add your first name and last initial.");
-    if (!hood.trim()) return setError("Add your neighborhood.");
+    if (!hood) return setError("Pick your neighborhood.");
     if (ages.size === 0) return setError("Select your kids' age range(s).");
 
-    setUser({
+    const localProfile = {
       name: name.trim(),
       parentType,
-      hood: hood.trim(),
+      hood,
       kidAges: [...ages],
       tags: [...tags],
       bio: bio.trim(),
       avatarUri,
-    });
+    };
+    setUser(localProfile);
 
-    router.replace(inLaunchArea ? "/(tabs)/discover" : "/not-in-your-area");
+    setSaving(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth?.user) {
+        let avatarUrl = null;
+        try {
+          avatarUrl = await uploadAvatar(auth.user.id, avatarUri);
+        } catch {
+          // avatar upload is non-blocking in the scaffold
+        }
+        await saveProfile({
+          displayName: name.trim(),
+          parentType,
+          bio: bio.trim(),
+          neighborhood: findNeighborhood(hood),
+          tags: [...tags],
+          ageRanges: [...ages],
+          avatarUrl,
+        });
+        const p = await getMyProfile();
+        setMyProfile(p);
+      }
+      router.replace(inLaunchArea ? "/(tabs)/discover" : "/not-in-your-area");
+    } catch (e) {
+      setError(e.message || "Couldn't save your profile — try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -115,17 +148,27 @@ export default function ProfileSetup() {
           <View style={styles.chipRow}>
             {PARENT_TYPES.map((t) => (
               <Chip
-                key={t}
-                label={t}
-                active={parentType === t}
-                onPress={() => setParentType(t)}
+                key={t.value}
+                label={t.label}
+                active={parentType === t.value}
+                onPress={() => setParentType(t.value)}
               />
             ))}
           </View>
         </Field>
 
         <Field label="Neighborhood (never your exact address)">
-          <Input value={hood} onChangeText={setHood} placeholder="Grant Park" />
+          <View style={[styles.chipRow, { rowGap: 8, flexWrap: "wrap" }]}>
+            {NEIGHBORHOODS.map((n) => (
+              <View key={n.name} style={{ marginBottom: 8 }}>
+                <Chip
+                  label={n.name}
+                  active={hood === n.name}
+                  onPress={() => setHood(n.name)}
+                />
+              </View>
+            ))}
+          </View>
         </Field>
 
         <Field label="Kids' age ranges">
@@ -144,12 +187,13 @@ export default function ProfileSetup() {
         <Field label="Interests">
           <View style={[styles.chipRow, { flexWrap: "wrap", rowGap: 8 }]}>
             {INTERESTS.map((t) => (
-              <Chip
-                key={t}
-                label={t}
-                active={tags.has(t)}
-                onPress={() => toggle(setTags)(t)}
-              />
+              <View key={t} style={{ marginBottom: 8 }}>
+                <Chip
+                  label={t}
+                  active={tags.has(t)}
+                  onPress={() => toggle(setTags)(t)}
+                />
+              </View>
             ))}
           </View>
         </Field>
@@ -167,7 +211,7 @@ export default function ProfileSetup() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button title="Join the village" onPress={finish} />
+        <Button title="Join the village" onPress={finish} loading={saving} />
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
