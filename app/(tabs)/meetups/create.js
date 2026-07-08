@@ -4,32 +4,74 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Input, Field, H1, Sub, Chip } from "../../../components/ui";
+import { useAppState } from "../../../lib/app-state";
+import { createMeetup } from "../../../lib/api";
 import { C } from "../../../lib/theme";
 
-const KINDS = ["Playdate", "Park Hang", "Adults Only", "Walk", "Birthday", "Other"];
-const VISIBILITY = ["Connections", "Neighborhood", "Public"];
+const KINDS = [
+  { label: "Playdate", value: "playdate" },
+  { label: "Park Hang", value: "park_hang" },
+  { label: "Adults Only", value: "adults_only" },
+  { label: "Walk", value: "walk" },
+  { label: "Birthday", value: "birthday" },
+  { label: "Other", value: "other" },
+];
+const VISIBILITY = [
+  { label: "Connections", value: "connections" },
+  { label: "Neighborhood", value: "neighborhood" },
+  { label: "Public", value: "public" },
+];
 
 export default function CreateMeetup() {
   const router = useRouter();
+  const { session, myProfile } = useAppState();
   const [title, setTitle] = React.useState("");
-  const [kind, setKind] = React.useState("Playdate");
+  const [kind, setKind] = React.useState("playdate");
   const [when, setWhen] = React.useState("");
   const [where, setWhere] = React.useState("");
   const [capacity, setCapacity] = React.useState("");
-  const [visibility, setVisibility] = React.useState("Neighborhood");
+  const [visibility, setVisibility] = React.useState("neighborhood");
   const [kidsWelcome, setKidsWelcome] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
 
-  function create() {
+  async function create() {
     setError("");
     if (!title.trim()) return setError("Give your meetup a title.");
     if (!when.trim()) return setError("Add a date and time.");
     if (!where.trim()) return setError("Add a location.");
-    Alert.alert(
-      "Meetup created",
-      "Your meetup is live and its group chat is ready. (Scaffold — will save to Supabase.)",
-      [{ text: "Nice", onPress: () => router.back() }]
-    );
+
+    if (!session) {
+      Alert.alert(
+        "Demo mode",
+        "Sign in to host a real meetup — this build is running on demo data.",
+        [{ text: "OK", onPress: () => router.back() }]
+      );
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const meetupId = await createMeetup({
+        title: title.trim(),
+        kind,
+        whenText: when.trim(),
+        placeName: where.trim(),
+        neighborhood: myProfile?.neighborhood || null,
+        capacity: capacity ? parseInt(capacity, 10) : null,
+        kidsWelcome,
+        visibility,
+      });
+      Alert.alert(
+        "Meetup created",
+        "It's live, and its group chat is ready — everyone who RSVPs joins automatically.",
+        [{ text: "See it", onPress: () => router.replace(`/meetups/${meetupId}`) }]
+      );
+    } catch (e) {
+      setError(e.message || "Couldn't create the meetup — try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -55,8 +97,12 @@ export default function CreateMeetup() {
         <Field label="Type">
           <View style={styles.chipWrap}>
             {KINDS.map((k) => (
-              <View key={k} style={{ marginBottom: 8 }}>
-                <Chip label={k} active={kind === k} onPress={() => setKind(k)} />
+              <View key={k.value} style={{ marginBottom: 8 }}>
+                <Chip
+                  label={k.label}
+                  active={kind === k.value}
+                  onPress={() => setKind(k.value)}
+                />
               </View>
             ))}
           </View>
@@ -91,10 +137,10 @@ export default function CreateMeetup() {
           <View style={styles.chipWrap}>
             {VISIBILITY.map((v) => (
               <Chip
-                key={v}
-                label={v}
-                active={visibility === v}
-                onPress={() => setVisibility(v)}
+                key={v.value}
+                label={v.label}
+                active={visibility === v.value}
+                onPress={() => setVisibility(v.value)}
               />
             ))}
           </View>
@@ -114,7 +160,7 @@ export default function CreateMeetup() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button title="Create meetup" onPress={create} />
+        <Button title="Create meetup" onPress={create} loading={saving} />
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>

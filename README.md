@@ -33,11 +33,12 @@ Cross-cutting: screenshots/recordings blocked app-wide (`expo-screen-capture`), 
 1. ~~**Profiles on Supabase**~~ ✅ — profile-setup saves via `upsert_my_profile` RPC (neighborhood centroid → PostGIS point), avatar → `avatars` storage bucket
 2. ~~**Discover on PostGIS**~~ ✅ — `nearby_parents` RPC (`ST_DWithin`), connect requests + accept flow (`accept_connection` creates the DM thread); falls back to demo data when logged out
 3. ~~**Realtime chat**~~ ✅ — threads/messages tables with member-only RLS, live inserts via `postgres_changes`
-4. **Photo moderation pipeline** — storage webhook → moderation API before publish
-5. **Meetups CRUD** + auto group chats + push notifications
-6. **Stripe Identity** — replace the stub in `app/(onboarding)/verify-identity.js` (see `docs/INTEGRATIONS.md`)
-7. **Checkr** sitter onboarding (sitter pays; Hosted Apply + webhooks)
-8. EAS Build → TestFlight
+4. ~~**Meetups CRUD + auto group chats**~~ ✅ — `create_meetup` / `rsvp_meetup` RPCs; RSVP joins the event group chat automatically, capacity enforced
+5. **Photo moderation pipeline** — storage webhook → moderation API before publish (needs Hive/Rekognition account)
+6. **Push notifications** (Expo Notifications)
+7. **Stripe Identity** — replace the stub in `app/(onboarding)/verify-identity.js` (see `docs/INTEGRATIONS.md`)
+8. **Checkr** sitter onboarding (sitter pays; Hosted Apply + webhooks)
+9. EAS Build → TestFlight
 
 To test live mode: sign up twice (two emails / two devices), complete both profiles in nearby neighborhoods, connect from one account, accept from the other (Discover → person-add icon), then chat — messages stream in real time.
 

@@ -1,22 +1,111 @@
 import * as React from "react";
-import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  RefreshControl,
+} from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, H1, Sub, SectionLabel } from "../../../components/ui";
 import { MEETUPS } from "../../../lib/mock";
 import { useAppState } from "../../../lib/app-state";
+import { fetchMeetups, rsvpMeetup, cancelRsvp } from "../../../lib/api";
 import { C } from "../../../lib/theme";
 
 const KIND_ICON = {
-  "Kids + parents": "balloon-outline",
-  "Adults only": "restaurant-outline",
-  Dads: "cafe-outline",
+  playdate: "balloon-outline",
+  park_hang: "sunny-outline",
+  adults_only: "restaurant-outline",
+  walk: "walk-outline",
+  birthday: "gift-outline",
+  other: "calendar-outline",
 };
+const KIND_LABEL = {
+  playdate: "Playdate",
+  park_hang: "Park Hang",
+  adults_only: "Adults only",
+  walk: "Walk",
+  birthday: "Birthday",
+  other: "Meetup",
+};
+
+const MOCK_ROWS = MEETUPS.map((m) => ({
+  id: `mock-${m.id}`,
+  _mockId: m.id,
+  title: m.title,
+  kind:
+    m.kind === "Adults only"
+      ? "adults_only"
+      : m.kind === "Dads"
+      ? "other"
+      : "playdate",
+  when_text: m.when,
+  place_name: m.where,
+  going: m.going,
+  iAmGoing: false,
+  hostName: m.host,
+  kindLabel: m.kind,
+}));
 
 export default function Meetups() {
   const router = useRouter();
-  const { rsvps, toggleRsvp } = useAppState();
+  const { session, rsvps, toggleRsvp } = useAppState();
+  const [rows, setRows] = React.useState(null);
+  const [live, setLive] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    if (!session) {
+      setRows(MOCK_ROWS);
+      setLive(false);
+      return;
+    }
+    try {
+      const data = await fetchMeetups();
+      setRows(data);
+      setLive(true);
+    } catch {
+      setRows(MOCK_ROWS);
+      setLive(false);
+    }
+  }, [session]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
+
+  async function toggleGoing(m) {
+    if (!live) {
+      toggleRsvp(m._mockId);
+      return;
+    }
+    // optimistic
+    setRows((rs) =>
+      rs.map((r) =>
+        r.id === m.id
+          ? { ...r, iAmGoing: !r.iAmGoing, going: r.going + (r.iAmGoing ? -1 : 1) }
+          : r
+      )
+    );
+    try {
+      if (m.iAmGoing) await cancelRsvp(m.id);
+      else await rsvpMeetup(m.id);
+    } catch {
+      load();
+    }
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.cream }} edges={["top"]}>
@@ -42,12 +131,29 @@ export default function Meetups() {
       </View>
 
       <FlatList
-        data={MEETUPS}
+        data={rows || []}
         keyExtractor={(m) => String(m.id)}
         contentContainerStyle={styles.list}
-        ListHeaderComponent={<SectionLabel>Upcoming near you</SectionLabel>}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListHeaderComponent={
+          <SectionLabel>
+            Upcoming near you{live ? "" : " (demo data)"}
+          </SectionLabel>
+        }
+        ListEmptyComponent={
+          rows === null ? (
+            <Sub style={{ textAlign: "center", padding: 40 }}>Loading…</Sub>
+          ) : (
+            <Sub style={{ textAlign: "center", padding: 40 }}>
+              Nothing scheduled yet — be the first to host one.
+            </Sub>
+          )
+        }
         renderItem={({ item: m }) => {
-          const going = rsvps.has(m.id);
+          const going = live ? m.iAmGoing : rsvps.has(m._mockId);
+          const count = live ? m.going : m.going + (going ? 1 : 0);
           return (
             <Pressable onPress={() => router.push(`/meetups/${m.id}`)}>
               <Card style={{ marginBottom: 12, flexDirection: "row", gap: 14 }}>
@@ -62,20 +168,20 @@ export default function Meetups() {
                   <Text style={styles.title}>{m.title}</Text>
                   <View style={styles.metaRow}>
                     <Ionicons name="time-outline" size={12} color={C.sub} />
-                    <Sub style={{ fontSize: 12.5 }}> {m.when}</Sub>
+                    <Sub style={{ fontSize: 12.5 }}> {m.when_text}</Sub>
                   </View>
                   <View style={styles.metaRow}>
                     <Ionicons name="location-outline" size={12} color={C.sub} />
-                    <Sub style={{ fontSize: 12.5 }}> {m.where}</Sub>
+                    <Sub style={{ fontSize: 12.5 }}> {m.place_name}</Sub>
                   </View>
                   <View style={styles.bottomRow}>
                     <View style={styles.kindPill}>
                       <Text style={styles.kindText}>
-                        {m.kind} · {m.going + (going ? 1 : 0)} going
+                        {m.kindLabel || KIND_LABEL[m.kind]} · {count} going
                       </Text>
                     </View>
                     <Pressable
-                      onPress={() => toggleRsvp(m.id)}
+                      onPress={() => toggleGoing(m)}
                       style={[
                         styles.rsvpBtn,
                         { backgroundColor: going ? C.pineTint : C.coral },
